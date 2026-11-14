@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f5f2e8">
+<title>Integration Lab</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+:root{color-scheme:light;--paper:#f5f2e8;--ink:#172e28;--accent:#225943;--line:#cfdbce;--muted:#4e655a;--white:#fffdf7}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 "Instrument Sans",system-ui,sans-serif}
+main{max-width:1050px;margin:auto;padding:25px clamp(16px,4vw,48px) 48px}
+header{border-bottom:1px solid var(--line);padding-bottom:19px;margin-bottom:24px}
+h1,h2{font-family:"Instrument Serif",Georgia,serif;font-weight:500;line-height:1.05;margin:0}
+h1{font-size:clamp(42px,7vw,76px);letter-spacing:-.045em}
+h2{font-size:clamp(30px,4vw,46px);letter-spacing:-.025em}
+p{margin:10px 0}
+header p,.meta,small{color:var(--muted)}
+.track{height:7px;background:#dde5d9;border-radius:6px;overflow:hidden;margin-top:7px}
+#bar{height:100%;background:var(--accent)}
+.layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:20px}
+nav{display:grid;gap:7px;align-content:start}
+button,select{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);border-radius:9px;background:var(--white);padding:8px 12px;min-height:44px}
+button:hover{border-color:var(--accent)}
+button:focus-visible,select:focus-visible,summary:focus-visible,a:focus-visible{outline:3px solid #aa692d;outline-offset:3px}
+nav button{text-align:left;display:flex;justify-content:space-between;gap:8px}
+nav button[aria-pressed=true],.primary{color:white;background:var(--accent);border-color:var(--accent)}
+nav button[aria-pressed=true] small{color:white}
+button:disabled{opacity:.48;cursor:default}
+article{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:clamp(15px,4vw,30px);min-width:0}
+.toolbar,.actions,.topline{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.toolbar{margin-bottom:18px}
+.course-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0}
+#course-file{max-width:100%;margin:8px 0}
+[hidden]{display:none!important}
+select{background:var(--white);border:1px solid var(--line);border-radius:8px;padding:8px;min-height:44px}
+.meta{font-size:.86rem}
+.math{font:clamp(18px,3vw,26px)/1.55 Georgia,serif;background:#eaf0e7;border-radius:10px;padding:12px;margin:15px 0;overflow-wrap:anywhere;white-space:pre-line}
+details{border-top:1px solid var(--line);padding:9px 0}
+summary{cursor:pointer;min-height:32px}
+.actions{border-top:1px solid var(--line);margin-top:15px;padding-top:15px;justify-content:flex-start}
+a{color:var(--accent)}
+.credit{font-size:.85rem;margin-top:18px}
+@media(max-width:690px){.layout{grid-template-columns:1fr;gap:12px}nav{grid-template-columns:repeat(2,minmax(0,1fr))}nav button{font-size:.85rem;padding:6px 8px}}
+</style>
+<main>
+<header>
+<h1>Integration Lab</h1>
+<p>Paper-and-pencil practice for engineering probability.</p>
+<div class="course-controls">
+<label for="course">Course</label> <select id="course"></select>
+<button type="button" id="install" hidden>Install app</button>
+</div>
+<p id="offline" class="meta" role="status">Preparing offline access…</p>
+<details>
+<summary>Add a course or transfer progress</summary>
+<p class="meta">Download the template to write your own questions. Import a course or a backup from this app.</p>
+<a href="./course-template.json" download>Download course template</a>
+<div><label for="course-file">Import JSON</label> <input id="course-file" type="file" accept=".json,application/json"></div>
+<button type="button" id="backup">Download backup</button>
+<p id="import-status" class="meta" role="status"></p>
+</details>
+<div class="topline"><strong id="progress" aria-live="polite"></strong><small>Progress stays in this browser</small></div>
+<div class="track" aria-hidden="true"><div id="bar"></div></div>
+</header>
+<div class="layout">
+<nav id="topics" aria-label="Topics"></nav>
+<section aria-label="Practice">
+<div class="toolbar"><label for="mode">Show <select id="mode"><option value="all">All exercises</option><option value="review">Marked for review</option><option value="new">Untried exercises</option></select></label><span id="position" class="meta" aria-live="polite"></span></div>
+<article id="card"></article>
+</section>
+</div>
+</main>
+<script src="./practice-bank.js"></script>
+<script>
+const apex = 'https://opentext.uleth.ca/apex-calculus/sec_substitution.html';
+const paul = 'https://tutorial.math.lamar.edu/';
+const openstax = 'https://openstax.org/books/calculus-volume-3/pages/5-2-double-integrals-over-general-regions';
+const groups = [
+['Definite integrals', 'Use F(b) − F(a) after finding an antiderivative F.',
+[
+['Evaluate the integral.', '∫₀² (3x² + 2x) dx', 'Integrate each term separately.', 'F(x) = x³ + x². Subtract F(0) from F(2) to get 12.'],
+['Evaluate the integral.', '∫ from −2 to 1 of (5z² − 7z + 3) dz', 'Keep parentheses around F(−2).', 'F(z) = 5z³/3 − 7z²/2 + 3z. Then F(1) = 7/6 and F(−2) = −100/3, so the result is 69/2.', "Paul’s Online Math Notes · Computing Definite Integrals", paul+'Problems/CalcI/ComputingDefiniteIntegrals.aspx'],
+['Find c so that f is a probability density.', 'f(x) = cx on 0 < x < 2, and 0 elsewhere.', 'A density has total area 1.', '1 = c[x²/2] from 0 to 2 = 2c, so c = 1/2.'],
+['Find the indicated probability.', 'f(x) = 3x² on 0 < x < 1. Find P(1/2 < X < 3/4).', 'Use the bounds from the event.', 'Integrate 3x² to get x³. Evaluate at 3/4 and 1/2 to get 27/64 − 8/64 = 19/64.']
+]],
+['Substitution', 'Look for an inside function and its derivative.',
+[
+['Find an antiderivative.', '∫ 3x²(x³ − 1)⁷ dx', 'Let u = x³ − 1.', 'Since du = 3x² dx, integrate u⁷ to get (x³ − 1)⁸/8 + C.', 'APEX Calculus · §6.1 #3', apex],
+['Find an antiderivative.', '∫ e⁽⁷ˣ⁺⁵⁾ dx', 'Let u = 7x + 5.', 'Since du = 7 dx, the answer is e⁽⁷ˣ⁺⁵⁾/7 + C.', 'APEX Calculus · §6.1 #25', apex],
+['Evaluate using substitution and change both bounds.', '∫₀¹ 2x e^(−x²) dx', 'Let u = x². What happens to the bounds?', 'The new bounds are 0 and 1. Integrating e^(−u) gives [−e^(−u)] from 0 to 1, or 1 − e^(−1).'],
+['Evaluate using substitution.', '∫₀² x/(1 + x²) dx', 'Let u = 1 + x². The lower bound becomes 1.', 'The upper bound becomes 5 and x dx = du/2. The answer is ln(5)/2.']
+]],
+['Densities & CDFs', 'The CDF accumulates probability up to its argument.',
+[
+['Find the CDF everywhere.', 'f(x) = 2x on 0 < x < 1, and 0 elsewhere.', 'Use three cases. Once the upper bound passes 1, all the mass has been included.', 'F(t) = 0 for t ≤ 0. For 0 < t < 1, integrate 2x from 0 to t to get t². For t ≥ 1, F(t) = 1.'],
+['Find the CDF everywhere.', 'f(x) = 1/3 on 2 < x < 5, and 0 elsewhere.', 'The left edge of the support is 2.', 'F(t) = 0 for t ≤ 2, (t − 2)/3 for 2 < t < 5, and 1 for t ≥ 5.'],
+['Use the CDF to find the probability.', 'F(t) = t³ for 0 ≤ t ≤ 1. Find P(1/4 < X ≤ 1/2).', 'Subtract the two cumulative probabilities.', 'F(1/2) − F(1/4) = 1/8 − 1/64 = 7/64.'],
+['Normalize the density.', 'f(x) = c(8x³ − x⁴) on 0 ≤ x ≤ 8, and 0 elsewhere.', 'Integrate the polynomial first, then take the reciprocal.', 'The integral without c is [2x⁴ − x⁵/5] from 0 to 8, or 8192/5. Thus c = 5/8192.', 'Paul’s Online Math Notes · Probability #3', paul+'Problems/CalcII/Probability.aspx']
+]],
+['Improper integrals', 'Replace an infinite or singular endpoint with a limit.',
+[
+['Find the tail probability.', 'f(x) = 2e^(−2x) for x ≥ 0. Find P(X > 1).', 'Integrate from 1 to R, then let R grow.', '[−e^(−2x)] from 1 to R = e^(−2) − e^(−2R). The limit is e^(−2).'],
+['Decide whether the integral converges.', '∫₁^∞ 1/x dx', 'Use ln(R) − ln(1).', 'The limit of ln(R) as R grows is infinite, so the integral diverges.'],
+['Evaluate the improper integral.', '∫₀¹ 1/√x dx', 'Replace the lower bound with a positive number ε.', 'The integral from ε to 1 is 2 − 2√ε. Letting ε approach 0 from above gives 2.'],
+['Find the probability using the standard normal CDF Φ.', 'X is normal with mean 10 and standard deviation 2. Find P(X > 12).', 'Subtract the mean and divide by the standard deviation.', 'The z-score is 1. The upper-tail probability is 1 − Φ(1) ≈ 0.1587.']
+]],
+['By parts & moments', 'Use ∫u dv = uv − ∫v du when differentiating u simplifies the product.',
+[
+['Evaluate by parts.', '∫₀¹ x eˣ dx', 'Choose u = x and dv = eˣ dx.', 'An antiderivative is (x − 1)eˣ. Its value at 1 is 0 and at 0 is −1, giving 1.'],
+['Find the mean.', 'f(x) = 2e^(−2x) for x ≥ 0, and 0 elsewhere.', 'Integrate 2x e^(−2x). Choose u = x and dv = 2e^(−2x) dx.', 'On [0,R], the answer is −Re^(−2R) + (1 − e^(−2R))/2. Both terms involving e^(−2R) vanish as R grows, leaving 1/2.'],
+['Find the mean and variance.', 'f(x) = 2x on 0 < x < 1, and 0 elsewhere.', 'Integrate x f(x) and x² f(x) separately.', 'E[X] = ∫₀¹ 2x² dx = 2/3. E[X²] = ∫₀¹ 2x³ dx = 1/2. The variance is 1/2 − 4/9 = 1/18.'],
+['Find the value of the integral.', '∫₀^∞ (1 + 2x)e^(−x) dx', 'Split the sum. Use integration by parts on the x term.', 'The first term integrates to 1. For x e^(−x), the antiderivative is −(x + 1)e^(−x), giving 1 over [0,∞). So the total is 1 + 2 = 3.', 'Paul’s Online Math Notes · Improper Integrals #1', paul+'Problems/CalcII/ImproperIntegrals.aspx']
+]],
+['Joint & marginal', 'Sketch the region. The inner bounds describe a slice at a fixed outer variable.',
+[
+['Normalize the joint density.', 'f(x,y) = c on 0 < x < 2, 0 < y < 3, and 0 elsewhere.', 'The support is a rectangle.', 'The integral equals c × 2 × 3, so c = 1/6.'],
+['Normalize the joint density over the triangle.', 'f(x,y) = c on 0 < y < x < 1, and 0 elsewhere.', 'At fixed x, y runs from 0 to x.', 'The inner integral over y gives cx. Integrating cx from x = 0 to 1 gives c/2, so c = 2.'],
+['Find both marginal densities.', 'f(x,y) = 2 on 0 < y < x < 1, and 0 elsewhere.', 'For the x marginal, integrate y from 0 to x. For the y marginal, integrate x from y to 1.', 'fₓ(x) = 2x for 0 < x < 1. fᵧ(y) = 2(1 − y) for 0 < y < 1. Each is zero outside its interval.'],
+['Average xy over the triangular region.', 'Vertices (0,0), (1,0), and (1,3).', 'Use 0 ≤ x ≤ 1 and 0 ≤ y ≤ 3x. Divide the integral by the area.', 'The inner integral of xy gives 9x³/2. Integrating from x = 0 to 1 gives 9/8. Divide by the area 3/2 to get 3/4.', 'OpenStax Calculus Volume 3 · Checkpoint 5.14', openstax]
+]]
+];
+
+const get = id => document.getElementById(id);
+const integrationGroups = groups.map(([topic, rule, items], index) =>
+  [topic, rule, [...items, ...practiceBank[index]]]);
+const builtin = {id:'integration', title:'Integration for probability', topics:integrationGroups};
+const storageKeys = {progress:'integration-lab-v1',courses:'integration-lab-courses',selected:'integration-lab-selected'};
+
+function read(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+}
+function save(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+  catch { document.querySelector('.topline small').textContent = 'Changes available for this session'; return false; }
+}
+let progress = read(storageKeys.progress, {});
+let customCourses = read(storageKeys.courses, []);
+let selected = read(storageKeys.selected, builtin.id);
+let active = builtin;
+let cards = [];
+
+function selectCourse(id) {
+  active = [builtin, ...customCourses].find(course => course.id === id) || builtin;
+  if (selected !== active.id) save(storageKeys.selected, active.id);
+  selected = active.id;
+  get('course').replaceChildren(...[builtin, ...customCourses].map(course => {
+    const option = element('option', course.title);
+    option.value = course.id;
+    return option;
+  }));
+  get('course').value = active.id;
+  cards = active.topics.flatMap(([topic,rule,items], groupIndex) => items.map((item,index) => ({
+    topic, rule, group:groupIndex,
+    id:(active === builtin ? '' : active.id+':')+groupIndex+'-'+index, item
+  })));
+  group = 0;
+  cursor = 0;
+  get('mode').value = 'all';
+  render();
+}
+
+function parseCourse(course) {
+  const shortText = value => typeof value === 'string' && Boolean(value.trim()) && value.length <= 150;
+  const longText = value => typeof value === 'string' && Boolean(value.trim()) && value.length <= 2500;
+  if (!course || !shortText(course.title) || !Array.isArray(course.topics) ||
+      course.topics.length < 1 || course.topics.length > 30) throw Error('Include a course title and 1–30 topics.');
+  if (typeof course.id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,59}$/.test(course.id) || course.id === builtin.id)
+    throw Error('Choose a unique course ID using lowercase letters, numbers, and hyphens.');
+  const topics = course.topics.map(topic => {
+    if (!topic || !shortText(topic.title) || !longText(topic.rule) || !Array.isArray(topic.questions) ||
+        topic.questions.length < 1 || topic.questions.length > 200) throw Error('Each topic needs a title, a rule, and 1–200 questions.');
+    return [topic.title,topic.rule,topic.questions.map(item => {
+      if (!item || ![item.prompt,item.problem,item.hint,item.solution].every(longText))
+        throw Error('Each question needs a prompt, problem, hint, and solution.');
+      return [item.prompt,item.problem,item.hint,item.solution];
+    })];
+  });
+  return {id:course.id,title:course.title,topics};
+}
+
+function exportCourse(course) {
+  return {id:course.id,title:course.title,topics:course.topics.map(([title, rule, items]) => ({
+    title, rule, questions:items.map(([prompt,problem,hint,solution])=>({prompt,problem,hint,solution}))
+  }))};
+}
+function downloadBackup() {
+  const blob = new Blob([JSON.stringify({
+    format:'integration-lab-backup-v1', courses:customCourses.map(exportCourse), progress
+  },null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const download = document.createElement('a');
+  download.href = url;
+  download.download = 'integration-lab-backup.json';
+  download.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+async function importFile(event) {
+  const [file] = event.target.files;
+  if (!file) return;
+  try {
+    if (file.size > 5_000_000) throw Error('Choose a JSON file smaller than 5 MB.');
+    const data = JSON.parse(await file.text());
+    if (data?.format === 'integration-lab-backup-v1') {
+      if (!Array.isArray(data.courses) || !data.progress || Array.isArray(data.progress) || typeof data.progress !== 'object')
+        throw Error('The backup is missing its courses or progress.');
+      const incoming = data.courses.map(parseCourse);
+      const conflict = incoming.find(course => customCourses.some(local =>
+        local.id === course.id && JSON.stringify(local) !== JSON.stringify(course)));
+      if (conflict) throw Error('A different version of '+conflict.title+' already uses this course ID.');
+      for (const course of incoming) {
+        if (!customCourses.some(local => local.id === course.id)) customCourses.push(course);
+      }
+      const imported = Object.fromEntries(Object.entries(data.progress).filter(([id,state]) =>
+        /^(?:[a-z0-9][a-z0-9-]{0,59}:)?\d+-\d+$/.test(id) && ['solved','review'].includes(state)));
+      progress = {...imported, ...progress};
+      save(storageKeys.courses, customCourses);
+      save(storageKeys.progress, progress);
+      selectCourse(selected);
+      get('import-status').textContent = 'Backup merged. Existing progress takes precedence.';
+    } else {
+      const course = parseCourse(data);
+      if (customCourses.some(local => local.id === course.id)) throw Error('This course ID already exists. Use a new ID in your JSON.');
+      customCourses.push(course);
+      save(storageKeys.courses, customCourses);
+      selectCourse(course.id);
+      get('import-status').textContent = 'Added '+course.title+'.';
+    }
+  } catch (error) {
+    get('import-status').textContent = 'Import failed. '+error.message;
+  } finally {
+    event.target.value = '';
+  }
+}
+
+let group = 0;
+let cursor = 0;
+
+function element(tag,text,cls) {
+  const node = document.createElement(tag);
+  if (text) node.textContent = text;
+  if (cls) node.className = cls;
+  return node;
+}
+function button(label,action,cls) {
+  const node = element('button',label,cls);
+  node.type = 'button';
+  node.onclick = action;
+  return node;
+}
+function details(label,content) {
+  const node = element('details');
+  node.append(element('summary',label),element('p',content));
+  return node;
+}
+function link(label,url) {
+  const node = element('a',label);
+  node.href = url;
+  node.target = '_blank';
+  node.rel = 'noopener noreferrer';
+  return node;
+}
+function view() {
+  return cards.filter(card => (group === -1 || card.group === group) &&
+    (get('mode').value === 'all' || (get('mode').value === 'new' ? !progress[card.id] : progress[card.id] === 'review')));
+}
+function mark(id,state) {
+  progress[id] = state;
+  save(storageKeys.progress,progress);
+  render();
+  get('card').querySelector('h2').focus();
+}
+function render() {
+  const solved = cards.filter(card => progress[card.id] === 'solved').length;
+  get('progress').textContent = solved+' / '+cards.length+' solved';
+  get('bar').style.width = (100*solved/cards.length)+'%';
+  const nav = get('topics');
+  nav.replaceChildren();
+  [...active.topics.map(([topic],index) => [topic,index]),['All topics',-1]].forEach(([topic,index]) => {
+    const node = button(topic,() => {group=index;cursor=0;render();get('topics').querySelector('[aria-pressed=true]').focus();});
+    node.setAttribute('aria-pressed',String(group===index));
+    if (index >= 0) node.append(element('small',String(cards.filter(card=>card.group===index && progress[card.id]==='solved').length)+'/'+active.topics[index][2].length));
+    nav.append(node);
+  });
+  const current = view();
+  cursor = Math.min(cursor,Math.max(0,current.length-1));
+  get('position').textContent = current.length ? (cursor+1)+' of '+current.length : '0 exercises';
+  const area = get('card');
+  area.replaceChildren();
+  if (!current.length) {
+    const title = element('h2','No exercises in this view');
+    title.tabIndex = -1;
+    area.append(title,button('Show all exercises',()=>{get('mode').value='all';cursor=0;render();get('card').querySelector('h2').focus();}));
+    return;
+  }
+  const card = current[cursor];
+  const [question,formula,hint,solution,source,url] = card.item;
+  const status = {solved:'Solved',review:'Marked for review'}[progress[card.id]] || 'Untried';
+  const title = element('h2',card.topic);
+  title.tabIndex = -1;
+  area.append(element('p',status,'meta'),title,element('p',card.rule,'meta'),element('p',question),element('div',formula,'math'),details('Show hint',hint),details('Show solution',solution));
+  const actions = element('div',null,'actions');
+  const previous = button('Previous',()=>step(-1));
+  const next = button('Next',()=>step(1));
+  previous.disabled = cursor===0;
+  next.disabled = cursor===current.length-1;
+  actions.append(previous,next,button('Review later',()=>mark(card.id,'review')),button('Mark solved',()=>mark(card.id,'solved'),'primary'));
+  area.append(actions);
+  if (source) {
+    const credit = element('p',null,'credit');
+    credit.append(link(source,url));
+    if (url === apex) credit.append(' · Gregory Hartman et al. · ',link('CC BY-NC 4.0','https://creativecommons.org/licenses/by-nc/4.0/'));
+    area.append(credit);
+  }
+}
+function step(delta) {
+  cursor += delta;
+  render();
+  get('card').querySelector('h2').focus();
+}
+get('mode').onchange = () => {cursor=0;render();};
+get('course').onchange = event => selectCourse(event.target.value);
+get('course-file').onchange = importFile;
+get('backup').onclick = downloadBackup;
+selectCourse(selected);
+
+let installPrompt;
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  installPrompt = event;
+  get('install').hidden = false;
+});
+get('install').onclick = async () => {
+  if (!installPrompt) return;
+  const prompt = installPrompt;
+  installPrompt = null;
+  get('install').hidden = true;
+  await prompt.prompt();
+};
+window.addEventListener('appinstalled', () => { get('install').hidden = true; });
+
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  navigator.serviceWorker.register('./sw.js').then(async () => {
+    await navigator.serviceWorker.ready;
+    get('offline').textContent = 'Ready for offline practice';
+  }).catch(() => { get('offline').textContent = 'Offline setup failed. Reload once while online to retry.'; });
+} else {
+  get('offline').textContent = 'Offline installation requires HTTPS and a browser with service worker support.';
+}
+</script>
+</html>

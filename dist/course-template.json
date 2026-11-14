@@ -1,0 +1,24 @@
+{
+  "id": "discrete-math",
+  "title": "Discrete math",
+  "topics": [
+    {
+      "title": "Counting",
+      "rule": "Multiply independent choices for each position.",
+      "questions": [
+        {
+          "prompt": "Count the strings of length 3.",
+          "problem": "Use the letters A, B, C, and D. Repetition is allowed.",
+          "hint": "There are four choices in each of the three positions.",
+          "solution": "Multiply 4 × 4 × 4 to get 64 strings."
+        },
+        {
+          "prompt": "Count the ways to select two people.",
+          "problem": "Choose two from a group of five. The order does not matter.",
+          "hint": "Count ordered pairs first, then divide by the number of orders for each pair.",
+          "solution": "There are 5 × 4 ordered pairs. Each unordered pair appears twice, giving 10."
+        }
+      ]
+    }
+  ]
+}
