@@ -1,7 +1,7 @@
 'use strict';
 
 const prefix = 'integration-lab:' + self.registration.scope + ':';
-const cacheName = prefix + 'v3';
+const cacheName = prefix + 'v4';
 const shell = new URL('index.html', self.registration.scope).href;
 const assets = ['./index.html', './practice-bank.js', './math.js', './quiz.js', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './course-template.json']
@@ -9,7 +9,8 @@ const assets = ['./index.html', './practice-bank.js', './math.js', './quiz.js', 
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(cacheName).then(cache =>
-    cache.addAll(assets.map(url => new Request(url, {cache:'reload'})))));
+    cache.addAll(assets.map(url => new Request(url, {cache:'reload'}))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {
