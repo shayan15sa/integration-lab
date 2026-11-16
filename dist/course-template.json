@@ -10,13 +10,28 @@
           "prompt": "Count the strings of length 3.",
           "problem": "Use the letters A, B, C, and D. Repetition is allowed.",
           "hint": "There are four choices in each of the three positions.",
-          "solution": "Multiply 4 × 4 × 4 to get 64 strings."
+          "solution": "Multiply 4 × 4 × 4 to get 64 strings.",
+          "tex": "\\text{Alphabet: } A,B,C,D",
+          "options": [
+            "12",
+            "64",
+            "81",
+            "24"
+          ],
+          "correctIndex": 1
         },
         {
           "prompt": "Count the ways to select two people.",
           "problem": "Choose two from a group of five. The order does not matter.",
           "hint": "Count ordered pairs first, then divide by the number of orders for each pair.",
-          "solution": "There are 5 × 4 ordered pairs. Each unordered pair appears twice, giving 10."
+          "solution": "There are 5 × 4 ordered pairs. Each unordered pair appears twice, giving 10.",
+          "options": [
+            "10",
+            "20",
+            "15",
+            "5"
+          ],
+          "correctIndex": 0
         }
       ]
     }

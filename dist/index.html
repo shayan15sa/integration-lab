@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f5f2e8">
 <title>Integration Lab</title>
 <link rel="manifest" href="./manifest.webmanifest">
@@ -43,7 +43,39 @@ summary{cursor:pointer;min-height:32px}
 .actions{border-top:1px solid var(--line);margin-top:15px;padding-top:15px;justify-content:flex-start}
 a{color:var(--accent)}
 .credit{font-size:.85rem;margin-top:18px}
-@media(max-width:690px){.layout{grid-template-columns:1fr;gap:12px}nav{grid-template-columns:repeat(2,minmax(0,1fr))}nav button{font-size:.85rem;padding:6px 8px}}
+section[aria-label=Practice]{min-width:0}
+.topic-picker{display:none}
+.question{font-size:1.05rem;font-weight:650}
+.math{overflow-x:auto;overflow-wrap:normal;overscroll-behavior-inline:contain}
+.math math{min-width:max-content;text-align:start}
+.math math+math{margin-top:4px}
+.choices{display:grid;gap:8px;border:0;padding:0;margin:0 0 8px;min-inline-size:0}
+.choices legend{font-weight:650;padding:0;margin-bottom:8px}
+.answer{display:flex;align-items:center;gap:12px;text-align:left;min-width:0;min-height:52px;touch-action:manipulation}
+.answer-math{min-width:0;overflow-x:auto;overscroll-behavior-inline:contain}
+.answer-math math{font-size:1.08em}
+.letter{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:7px;background:#eaf0e7;font-weight:700;font-size:.85rem}
+.answer[data-result=correct]{background:#dceee0;border-color:#287447}
+.answer[data-result=incorrect]{background:#fcebe2;border-color:#a44923}
+.feedback{color:var(--muted);margin:0;min-height:1.55em;font-size:.9rem}
+.actions{display:grid;grid-auto-flow:column;grid-auto-columns:1fr}
+#course{max-width:100%}
+@media(max-width:690px){
+  main{padding:12px max(12px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+  header{padding-bottom:10px;margin-bottom:12px}
+  h1{font-size:38px} h2{font-size:31px}
+  header > p:first-of-type{display:none}
+  .course-controls{margin:8px 0}
+  .layout{display:block}
+  #topics{display:none}
+  .toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-bottom:8px}
+  .toolbar label{display:grid;font-size:.82rem;color:var(--muted)}
+  .toolbar select{width:100%;min-width:0;font-size:16px}
+  #position{grid-column:1/-1}
+  .math{margin:10px 0;padding:9px;font-size:20px}
+  .actions{position:sticky;bottom:0;background:var(--white);padding:8px 0 max(8px,env(safe-area-inset-bottom));margin-top:8px}
+  .answer{padding:7px 10px}
+}
 </style>
 <main>
 <header>
@@ -68,12 +100,14 @@ a{color:var(--accent)}
 <div class="layout">
 <nav id="topics" aria-label="Topics"></nav>
 <section aria-label="Practice">
-<div class="toolbar"><label for="mode">Show <select id="mode"><option value="all">All exercises</option><option value="review">Marked for review</option><option value="new">Untried exercises</option></select></label><span id="position" class="meta" aria-live="polite"></span></div>
+<div class="toolbar"><label class="topic-picker" for="topic">Topic <select id="topic"></select></label><label for="mode">Show <select id="mode"><option value="all">All exercises</option><option value="review">Marked for review</option><option value="new">Untried exercises</option></select></label><span id="position" class="meta" aria-live="polite"></span></div>
 <article id="card"></article>
 </section>
 </div>
 </main>
 <script src="./practice-bank.js"></script>
+<script src="./math.js"></script>
+<script src="./quiz.js"></script>
 <script>
 const apex = 'https://opentext.uleth.ca/apex-calculus/sec_substitution.html';
 const paul = 'https://tutorial.math.lamar.edu/';
@@ -141,6 +175,7 @@ let customCourses = read(storageKeys.courses, []);
 let selected = read(storageKeys.selected, builtin.id);
 let active = builtin;
 let cards = [];
+const attempts = new Map();
 
 function selectCourse(id) {
   active = [builtin, ...customCourses].find(course => course.id === id) || builtin;
@@ -154,6 +189,7 @@ function selectCourse(id) {
   get('course').value = active.id;
   cards = active.topics.flatMap(([topic,rule,items], groupIndex) => items.map((item,index) => ({
     topic, rule, group:groupIndex,
+    quiz:active === builtin ? quiz[groupIndex][index] : item[6],
     id:(active === builtin ? '' : active.id+':')+groupIndex+'-'+index, item
   })));
   group = 0;
@@ -175,7 +211,18 @@ function parseCourse(course) {
     return [topic.title,topic.rule,topic.questions.map(item => {
       if (!item || ![item.prompt,item.problem,item.hint,item.solution].every(longText))
         throw Error('Each question needs a prompt, problem, hint, and solution.');
-      return [item.prompt,item.problem,item.hint,item.solution];
+      const {tex, options, correctIndex} = item;
+      if (tex !== undefined) {
+        if (!longText(tex)) throw Error('The TeX field must contain a math expression.');
+        renderMath(tex);
+      }
+      if (options !== undefined && (!Array.isArray(options) || options.length < 2 || options.length > 6 ||
+          !options.every(longText) || new Set(options).size !== options.length ||
+          !Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex >= options.length))
+        throw Error('Use 2–6 distinct options and a zero-based correctIndex.');
+      const result = [item.prompt,item.problem,item.hint,item.solution];
+      if (tex !== undefined || options !== undefined) result.push(null,null,{formula:tex,options,correctIndex});
+      return result;
     })];
   });
   return {id:course.id,title:course.title,topics};
@@ -183,7 +230,9 @@ function parseCourse(course) {
 
 function exportCourse(course) {
   return {id:course.id,title:course.title,topics:course.topics.map(([title, rule, items]) => ({
-    title, rule, questions:items.map(([prompt,problem,hint,solution])=>({prompt,problem,hint,solution}))
+    title, rule, questions:items.map(([prompt,problem,hint,solution,,,exercise])=>({
+      prompt,problem,hint,solution,tex:exercise?.formula,options:exercise?.options,correctIndex:exercise?.correctIndex
+    }))
   }))};
 }
 function downloadBackup() {
@@ -237,6 +286,7 @@ async function importFile(event) {
 
 let group = 0;
 let cursor = 0;
+let shown = [];
 
 function element(tag,text,cls) {
   const node = document.createElement(tag);
@@ -268,6 +318,7 @@ function view() {
 }
 function mark(id,state) {
   progress[id] = state;
+  if (state === 'review') attempts.delete(id);
   save(storageKeys.progress,progress);
   render();
   get('card').querySelector('h2').focus();
@@ -278,13 +329,20 @@ function render() {
   get('bar').style.width = (100*solved/cards.length)+'%';
   const nav = get('topics');
   nav.replaceChildren();
+  const picker = get('topic');
+  picker.replaceChildren();
   [...active.topics.map(([topic],index) => [topic,index]),['All topics',-1]].forEach(([topic,index]) => {
+    const option = element('option',topic);
+    option.value = index;
+    picker.append(option);
     const node = button(topic,() => {group=index;cursor=0;render();get('topics').querySelector('[aria-pressed=true]').focus();});
     node.setAttribute('aria-pressed',String(group===index));
     if (index >= 0) node.append(element('small',String(cards.filter(card=>card.group===index && progress[card.id]==='solved').length)+'/'+active.topics[index][2].length));
     nav.append(node);
   });
-  const current = view();
+  picker.value = group;
+  shown = view();
+  const current = shown;
   cursor = Math.min(cursor,Math.max(0,current.length-1));
   get('position').textContent = current.length ? (cursor+1)+' of '+current.length : '0 exercises';
   const area = get('card');
@@ -300,13 +358,25 @@ function render() {
   const status = {solved:'Solved',review:'Marked for review'}[progress[card.id]] || 'Untried';
   const title = element('h2',card.topic);
   title.tabIndex = -1;
-  area.append(element('p',status,'meta'),title,element('p',card.rule,'meta'),element('p',question),element('div',formula,'math'),details('Show hint',hint),details('Show solution',solution));
+  const prompt = element('div',null,'math');
+  if (card.quiz?.formula) {
+    const lines = active === builtin ? card.quiz.formula.split(String.raw`\quad `) : [card.quiz.formula];
+    prompt.append(...lines.map(line=>renderMath(line.trim(),true)));
+  }
+  else prompt.textContent = formula;
+  const instruction = active === builtin ? clarifyQuestion(card,question) : question;
+  area.append(element('p',status,'meta card-status'),title,element('p',instruction,'question'),prompt);
+  if (card.quiz?.options) area.append(answerOptions(card));
+  area.append(details('Show hint',hint),details('Show solution',solution));
   const actions = element('div',null,'actions');
   const previous = button('Previous',()=>step(-1));
   const next = button('Next',()=>step(1));
   previous.disabled = cursor===0;
   next.disabled = cursor===current.length-1;
-  actions.append(previous,next,button('Review later',()=>mark(card.id,'review')),button('Mark solved',()=>mark(card.id,'solved'),'primary'));
+    actions.append(previous,button('Review later',()=>mark(card.id,'review')));
+  if (!card.quiz?.options) actions.append(button('Mark solved',()=>mark(card.id,'solved')));
+  actions.append(next);
+  next.className = 'primary';
   area.append(actions);
   if (source) {
     const credit = element('p',null,'credit');
@@ -315,11 +385,79 @@ function render() {
     area.append(credit);
   }
 }
+function clarifyQuestion(card, question) {
+  const position = Number(card.id.split('-')[1]);
+  if (card.group === 4 && (position === 2 || position >= 16)) return 'Find the mean and variance, in that order.';
+  if (card.group === 4 && position >= 12) return 'Find the first and second moments, in that order.';
+  if (card.group === 5 && (position === 2 || (position >= 8 && position < 12)))
+    return 'Find the two marginal densities on their supports, in the order X, then Y.';
+  if (card.group === 2 && position >= 4 && position < 8) return 'Find the normalizing constant and the CDF, in that order.';
+  if (card.group === 2 && position >= 8 && position < 12) return 'Find the density on the positive half-line and the probability that X lies between 1 and 2.';
+  if (card.group === 5 && position === 3) return 'Find the average value of xy over the triangle with these vertices.';
+  return question;
+}
+
+function answerOptions(card) {
+  const builtinCard = active === builtin;
+  const {options,correctIndex = 0} = card.quiz;
+  const rotation = builtinCard ? (card.group+Number(card.id.split('-')[1])) % options.length : 0;
+  const choices = element('fieldset',null,'choices');
+  choices.append(element('legend','Choose an answer'));
+  const feedback = element('p',null,'feedback');
+  feedback.setAttribute('role','status');
+  const previous = attempts.get(card.id);
+  const buttons = options.map((_, index) => {
+    const choice = (index+rotation)%options.length;
+    const control = button(null,() => {
+      const correct = choice === correctIndex;
+      attempts.set(card.id,{choice,correct});
+      if (correct) {
+        progress[card.id] = 'solved';
+        save(storageKeys.progress,progress);
+        const solved = cards.filter(item=>progress[item.id]==='solved').length;
+        get('progress').textContent = solved+' / '+cards.length+' solved';
+        get('bar').style.width = (100*solved/cards.length)+'%';
+        get('card').querySelector('.card-status').textContent = 'Solved';
+        if (get('mode').value !== 'all') get('card').querySelector('.actions .primary').disabled = false;
+        const topicCount = get('topics').children[card.group]?.querySelector('small');
+        if (topicCount) topicCount.textContent = cards.filter(item=>item.group===card.group && progress[item.id]==='solved').length+'/'+active.topics[card.group][2].length;
+      }
+      showAnswer({choice,correct});
+    },'answer');
+    control.dataset.choice = choice;
+    control.append(element('span',String.fromCharCode(65+index),'letter'));
+    const content = element('span',null,'answer-math');
+    content.append(builtinCard ? renderMath(options[choice]) : options[choice]);
+    control.append(content);
+    choices.append(control);
+    return control;
+  });
+  function showAnswer(result) {
+    for (const control of buttons) {
+      const selected = Number(control.dataset.choice) === result.choice;
+      control.dataset.result = selected ? (result.correct ? 'correct' : 'incorrect') : '';
+      control.setAttribute('aria-pressed',String(selected));
+      control.setAttribute('aria-disabled',String(result.correct));
+      if (result.correct) control.onclick = null;
+    }
+    feedback.textContent = result.correct ? 'Correct. Marked as solved.' : 'Try again, or open the hint below.';
+  }
+  choices.append(feedback);
+  if (previous) showAnswer(previous);
+  return choices;
+}
+
 function step(delta) {
-  cursor += delta;
+  const target = shown[cursor+delta];
+  if (!target) { render(); return; }
+  const remaining = view();
+  const index = remaining.findIndex(card=>card.id===target.id);
+  cursor = index < 0 ? Math.min(cursor,remaining.length-1) : index;
+  cursor = Math.max(0,cursor);
   render();
   get('card').querySelector('h2').focus();
 }
+get('topic').onchange = event => {group=Number(event.target.value);cursor=0;render();};
 get('mode').onchange = () => {cursor=0;render();};
 get('course').onchange = event => selectCourse(event.target.value);
 get('course-file').onchange = importFile;

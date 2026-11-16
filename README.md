@@ -1,7 +1,7 @@
 # Integration Lab
 
-Practice on paper, reveal a hint or worked solution, then mark the question solved
-or save it for review. The built-in course contains 120 exercises, including 96
+Practice on paper, choose an answer, and reveal a hint or worked solution as needed.
+Correct choices count as solved. You can also save questions for review. The built-in course contains 120 exercises, including 96
 parameter variants across 24 problem types. It stores progress and custom courses
 in the current browser. Use **Download backup** and **Import JSON** to carry them
 to another browser or device.
@@ -17,7 +17,10 @@ external pages and require internet access.
 
 Download or copy `dist/course-template.json`. Give each course a unique ID.
 Each topic has a title, a study rule, and questions with a prompt, problem, hint,
-and solution. Import the JSON from the app. If you change the question order or
+and solution. Optionally add an array of choices as `options`, with a zero-based
+`correctIndex`, and a `tex` formula (see the template). The offline math renderer
+supports the TeX commands used by the exercise bank, including fractions, roots,
+powers, integrals, and cases. Import the JSON from the app. If you change the question order or
 replace questions, use a new course ID so progress stays tied to the old version.
 
 ## GitHub Pages
